@@ -1,6 +1,8 @@
 from django.db import models
 from django.contrib.auth.models import User  # Yerleşik User modeli
-
+class EmployeeProfile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)  # User ile birebir ilişki
+    annual_leave_days = models.FloatField(default=15)  # Yıllık izin günleri
 
 class Attendance(models.Model):
     employee = models.ForeignKey(User, on_delete=models.CASCADE)  # Kullanıcı modeli ile ilişki

@@ -15,6 +15,17 @@ from .models import Attendance, AttendanceLog
 from django.shortcuts import render, redirect
 from .forms import LeaveRequestForm
 from .models import LeaveRequest
+from datetime import date, datetime, time, timedelta
+from .models import Attendance, AttendanceLog, EmployeeProfile
+from django.contrib.auth.decorators import login_required
+from django.utils.timezone import now
+
+# Sabitler
+START_TIME = time(8, 0)  # İş başlangıç saati: 08:00
+END_TIME = time(18, 0)  # İş bitiş saati: 18:00
+WEEKEND_DAYS = [5, 6]  # Cumartesi ve Pazar (5 = Cumartesi, 6 = Pazar)
+
+
 def login(request):
     if request.method == 'POST':
         # Formdan gelen verileri al
@@ -39,31 +50,80 @@ def logout_view(request):
     return redirect('login')  # Çıkış yaptıktan sonra login sayfasına yönlendir
 
 
+@login_required
 def check_in(request):
-    if request.user.is_authenticated:  # Kullanıcının giriş yapıp yapmadığını kontrol et
+    if request.user.is_authenticated:
         today = date.today()
-        # Kullanıcı ve bugünkü tarih için yoklama kaydını al veya oluştur
-        attendance, created = Attendance.objects.get_or_create(employee=request.user, date=today)
-        # Yeni bir check-in log kaydı oluştur
-        AttendanceLog.objects.create(attendance=attendance, action='Check-In')
-        print("Check-in başarıyla kaydedildi.")  # Log
-        return redirect('employee_page')  # Employee sayfasına yönlendir
-    else:
-        return redirect('login')  # Kullanıcı giriş yapmadıysa login sayfasına yönlendir
 
+        # Tatil günlerini kontrol et
+        if today.weekday() in WEEKEND_DAYS:
+            print("Bugün iş günü değil.")
+            return redirect('employee_page')
+
+        # Kullanıcıya ait Attendance kaydı al veya oluştur
+        attendance, created = Attendance.objects.get_or_create(employee=request.user, date=today)
+
+        # Check-in log kaydı oluştur
+        check_in_time = now().time()
+        AttendanceLog.objects.create(attendance=attendance, action='Check-In', timestamp=now())
+
+        # Geç kalma kontrolü
+        if check_in_time > START_TIME:
+            late_minutes = (datetime.combine(today, check_in_time) - datetime.combine(today, START_TIME)).seconds / 60
+            late_hours = late_minutes / 60
+            print(f"Geç kalma: {late_minutes} dakika")
+
+            # Saat bazında izin kesintisi
+            profile = EmployeeProfile.objects.get(user=request.user)
+            hours_to_deduct = late_minutes / 60  # Saat olarak kesilecek izin
+            profile.annual_leave_days -= hours_to_deduct / 8  # Günlük izin saat üzerinden gün hesaplanır
+            profile.save()
+
+            # Yetkiliye bildirim gönder
+            print(f"{request.user.username} geç kaldı. {late_minutes} dakika.")
+        return redirect('employee_page')
+    return redirect('login')
+
+
+@login_required
 def check_out(request):
-    if request.user.is_authenticated:  # Kullanıcının giriş yaptığını kontrol et
+    if request.user.is_authenticated:
         today = date.today()
+
         try:
-            # Kullanıcı ve bugünkü tarih için yoklama kaydını getir
+            # Kullanıcıya ait Attendance kaydı al
             attendance = Attendance.objects.get(employee=request.user, date=today)
-            # Yeni bir check-out log kaydı oluştur
-            AttendanceLog.objects.create(attendance=attendance, action='Check-Out')
-            print("Check-out başarıyla kaydedildi.")  # Log
+
+            # Check-out log kaydı oluştur
+            check_out_time = now().time()
+            AttendanceLog.objects.create(attendance=attendance, action='Check-Out', timestamp=now())
+
+            # Erken çıkma kontrolü
+            if check_out_time < END_TIME:
+                early_minutes = (datetime.combine(today, END_TIME) - datetime.combine(today, check_out_time)).seconds / 60
+                early_hours = early_minutes / 60
+                print(f"Erken çıkma: {early_minutes} dakika")
+
+                # Saat bazında izin kesintisi
+                profile = EmployeeProfile.objects.get(user=request.user)
+                hours_to_deduct = early_minutes / 60  # Saat olarak kesilecek izin
+                profile.annual_leave_days -= hours_to_deduct / 8  # Günlük izin saat üzerinden gün hesaplanır
+                profile.save()
+
+                # Yetkiliye bildirim gönder
+                print(f"{request.user.username} erken çıktı. {early_minutes} dakika.")
+            else:
+                print(f"{request.user.username} iş saatine uygun şekilde çıkış yaptı.")
         except Attendance.DoesNotExist:
-            print("Bugün için check-in yapılmamış.")  # Log
-        return redirect('employee_page')  # Employee sayfasına yönlendir
-    return redirect('login')  #
+            print("Bugün için check-in yapılmamış.")
+        return redirect('employee_page')
+    return redirect('login')
+def format_leave_days(leave_days):
+    total_minutes = leave_days * 8 * 60  # Gün -> Saat -> Dakika
+    days = total_minutes // (8 * 60)
+    hours = (total_minutes % (8 * 60)) // 60
+    minutes = total_minutes % 60
+    return f"{int(days)} days, {int(hours)} hours, {int(minutes)} minutes"
 
 
 
@@ -72,21 +132,11 @@ def index(request):
 
 
 
-from django.shortcuts import render, redirect
-from .forms import LeaveRequestForm
-from .models import LeaveRequest, Attendance
-from django.contrib.auth.decorators import login_required
-from datetime import date
-
-from django.shortcuts import render, redirect
-from .forms import LeaveRequestForm
-from .models import LeaveRequest, Attendance, AttendanceLog
-from django.contrib.auth.decorators import login_required
 
 @login_required
 def employee(request):
     """
-    Çalışanın izin taleplerini ve yoklama kayıtlarını yönetir.
+    Çalışanın izin taleplerini, yoklama kayıtlarını ve yıllık izin günlerini yönetir.
     """
     # Kullanıcı izin talebi gönderdiğinde
     if request.method == 'POST':
@@ -103,13 +153,19 @@ def employee(request):
     leave_requests = LeaveRequest.objects.filter(employee=request.user).order_by('-start_date')
     attendance_logs = AttendanceLog.objects.filter(attendance__employee=request.user).order_by('-timestamp')
 
+    # Kullanıcının yıllık izin günlerini formatla
+    profile = EmployeeProfile.objects.get(user=request.user)
+    formatted_leave_days = format_leave_days(profile.annual_leave_days)
+
     # Template'e gönderilecek veri
     context = {
         'form': form,  # İzin talep formu
         'leave_requests': leave_requests,  # İzin talepleri
         'attendance_logs': attendance_logs,  # Yoklama logları
+        'formatted_leave_days': formatted_leave_days,  # Formatlanmış yıllık izin günleri
     }
     return render(request, 'dashboard/employee.html', context)
+
 
 
 
