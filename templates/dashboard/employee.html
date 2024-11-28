@@ -1,11 +1,39 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Employee</title>
-</head>
-<body>
-    <h3>Employee page</h3>
-</body>
-</html>
+{% extends 'partials/base.html' %}
+{% block title %}Staff Page{% endblock %}
+
+{% block content %}
+<h1>Welcome, {{ user.username }}</h1>
+
+<h2>Request Leave</h2>
+<form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Request Leave</button>
+</form>
+
+<h2>Attendance Actions</h2>
+<p>
+    <a href="{% url 'check_in' %}">Check In</a> | 
+    <a href="{% url 'check_out' %}">Check Out</a>
+</p>
+
+<h2>Attendance Records</h2>
+<table>
+    <tr>
+        <th>Date</th>
+        <th>Check-in Time</th>
+        <th>Check-out Time</th>
+    </tr>
+    {% for record in attendance_records %}
+    <tr>
+        <td>{{ record.date }}</td>
+        <td>{{ record.check_in_time }}</td>
+        <td>{{ record.check_out_time }}</td>
+    </tr>
+    {% empty %}
+    <tr>
+        <td colspan="3">No attendance records found.</td>
+    </tr>
+    {% endfor %}
+</table>
+{% endblock %}
