@@ -1,8 +1,8 @@
 from django.db import models
-from django.contrib.auth.models import User
+from django.contrib.auth.models import User  # Yerleşik User modeli
 
 class Attendance(models.Model):
-    employee = models.ForeignKey(User, on_delete=models.CASCADE)  # User modeli ile ilişki
+    employee = models.ForeignKey(User, on_delete=models.CASCADE)  # Kullanıcı modeli ile ilişki
     date = models.DateField()
     check_in_time = models.TimeField(null=True, blank=True)
     check_out_time = models.TimeField(null=True, blank=True)

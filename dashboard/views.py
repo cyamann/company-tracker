@@ -34,25 +34,43 @@ def logout_view(request):
     logout(request)
     return redirect('login')  # Çıkış yaptıktan sonra login sayfasına yönlendir
 
+
 def check_in(request):
-    today = date.today()
-    attendance, created = Attendance.objects.get_or_create(employee=request.user, date=today)
-    if not attendance.check_in_time:
-        attendance.check_in_time = now().time()
-        attendance.save()
-    return redirect('employee_page')
-
-def check_out(request):
-    today = date.today()
-    try:
-        attendance = Attendance.objects.get(employee=request.user, date=today)
-        if not attendance.check_out_time:
-            attendance.check_out_time = now().time()
+    if request.user.is_authenticated:  # Kullanıcının giriş yapıp yapmadığını kontrol et
+        today = date.today()
+        attendance, created = Attendance.objects.get_or_create(employee=request.user, date=today)
+        if not attendance.check_in_time:  # Eğer daha önce check-in yapılmadıysa
+            attendance.check_in_time = now().time()
             attendance.save()
-    except Attendance.DoesNotExist:
-        pass
-    return redirect('employee_page')
+            print("Check-in başarıyla kaydedildi.")  # Hata ayıklama için log
+        else:
+            print("Zaten check-in yapılmış.")
+        return redirect('employee_page')  # İşlem sonrası employee sayfasına yönlendir
+    else:
+        return redirect('login')  # Kullanıcı giriş yapmadıysa login sayfasına yönlendir
+def check_out(request):
+    if request.user.is_authenticated:  # Kullanıcının giriş yaptığını kontrol et
+        today = date.today()
+        try:
+            attendance = Attendance.objects.get(employee=request.user, date=today)
+            if not attendance.check_out_time:
+                attendance.check_out_time = now().time()
+                attendance.save()
+        except Attendance.DoesNotExist:
+            pass
+        return redirect('employee_page')  # Employee sayfasına yönlendirme
+    return redirect('login')  # Giriş yapılmadıysa login sayfasına yönlendir
 
+
+def employee(request):
+
+    return render(request, 'dashboard/employee.html') 
+
+def index(request):
+    return render(request, 'dashboard/index.html')
+
+from django.shortcuts import render
+from .models import Attendance
 
 def employee(request):
     if request.method == 'POST':
@@ -65,14 +83,10 @@ def employee(request):
     else:
         form = LeaveRequestForm()
     
+    # Kullanıcının yoklama kayıtlarını al ve en son tarih sırasına göre sırala
     attendance_records = Attendance.objects.filter(employee=request.user).order_by('-date')
     return render(request, 'dashboard/employee.html', {'form': form, 'attendance_records': attendance_records})
 
-def index(request):
-    return render(request, 'dashboard/index.html')
-
-def employee(request):
-    return render(request, 'dashboard/employee.html')
 
 def admin(request):
     return render(request, 'dashboard/admin.html')
