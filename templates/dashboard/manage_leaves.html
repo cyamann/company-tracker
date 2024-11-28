@@ -1,32 +1,36 @@
-<h2>Leave Requests</h2>
-<table class="table">
+<h2>İzin Talepleri</h2>
+<table>
     <thead>
         <tr>
-            <th>Employee</th>
-            <th>Start Date</th>
-            <th>End Date</th>
-            <th>Reason</th>
-            <th>Status</th>
-            <th>Actions</th>
+            <th>Çalışan</th>
+            <th>Başlangıç Tarihi</th>
+            <th>Bitiş Tarihi</th>
+            <th>Durum</th>
+            <th>Kalan İzin Günleri</th>
+            <th>İşlemler</th>
         </tr>
     </thead>
     <tbody>
-        {% for leave in leave_requests %}
+        {% for leave_request in leave_requests %}
         <tr>
-            <td>{{ leave.employee.username }}</td>
-            <td>{{ leave.start_date }}</td>
-            <td>{{ leave.end_date }}</td>
-            <td>{{ leave.reason }}</td>
-            <td>{{ leave.status }}</td>
+            <td>{{ leave_request.employee.username }}</td>
+            <td>{{ leave_request.start_date }}</td>
+            <td>{{ leave_request.end_date }}</td>
+            <td>{{ leave_request.status }}</td>
             <td>
-                {% if leave.status == 'Pending' %}
-                <form method="post" style="display:inline;">
+                {% for profile in employee_profiles %}
+                    {% if profile.user == leave_request.employee %}
+                        {{ profile.annual_leave_days }} gün
+                    {% endif %}
+                {% endfor %}
+            </td>
+            <td>
+                <form method="post">
                     {% csrf_token %}
-                    <input type="hidden" name="leave_id" value="{{ leave.id }}">
-                    <button type="submit" name="action" value="approve" class="btn btn-success">Approve</button>
-                    <button type="submit" name="action" value="reject" class="btn btn-danger">Reject</button>
+                    <input type="hidden" name="leave_id" value="{{ leave_request.id }}">
+                    <button type="submit" name="action" value="approve">Onayla</button>
+                    <button type="submit" name="action" value="reject">Reddet</button>
                 </form>
-                {% endif %}
             </td>
         </tr>
         {% endfor %}

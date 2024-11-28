@@ -18,7 +18,6 @@ class Notification(models.Model):
 
 
 
-
 class Attendance(models.Model):
     employee = models.ForeignKey(User, on_delete=models.CASCADE)  # Kullanıcı modeli ile ilişki
     date = models.DateField()  # Tarih

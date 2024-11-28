@@ -31,12 +31,14 @@ END_TIME = time(18, 0)  # İş bitiş saati: 18:00
 WEEKEND_DAYS = [5, 6]  # Cumartesi ve Pazar (5 = Cumartesi, 6 = Pazar)
 
 
-@login_required
-def mark_notification_as_read(request, notification_id):
-    notification = get_object_or_404(Notification, id=notification_id, user=request.user)
-    notification.is_read = True
-    notification.save()
-    return redirect('admin_dashboard')
+def update_annual_leave(employee, new_leave_days):
+    """
+    Personelin yıllık iznini günceller.
+    """
+    profile = EmployeeProfile.objects.get(user=employee)
+    profile.annual_leave_days = new_leave_days
+    profile.save()  # Signal otomatik olarak tetiklenecek
+
 
 def login(request):
     if request.method == 'POST':
@@ -91,6 +93,7 @@ def check_in(request):
     return redirect('employee_page')
 
 
+
 @login_required
 def notification_list(request):
     """
@@ -135,18 +138,18 @@ def check_out(request):
             print("Bugün için check-in yapılmamış.")
         return redirect('employee_page')
     return redirect('login')
-def format_leave_days(leave_days):
-    total_minutes = leave_days * 8 * 60  # Gün -> Saat -> Dakika
-    days = total_minutes // (8 * 60)
-    hours = (total_minutes % (8 * 60)) // 60
-    minutes = total_minutes % 60
-    return f"{int(days)} days, {int(hours)} hours, {int(minutes)} minutes"
 
+
+@login_required
+def mark_notification_as_read(request, notification_id):
+    notification = get_object_or_404(Notification, id=notification_id, user=request.user)
+    notification.is_read = True
+    notification.save()
+    return redirect('admin_dashboard')
 
 
 def index(request):
     return render(request, 'dashboard/index.html')
-
 
 
 
@@ -184,26 +187,82 @@ def employee(request):
     return render(request, 'dashboard/employee.html', context)
 
 
-
-@user_passes_test(lambda u: u.is_superuser)  # Sadece admin erişebilir
+@user_passes_test(lambda u: u.is_superuser)
 def admin_dashboard(request):
     notifications = Notification.objects.filter(user=request.user, is_read=False).order_by('-created_at')
-    return render(request, 'dashboard/admin_dashboard.html', {'notifications': notifications})
+    leave_requests = LeaveRequest.objects.filter(status='Pending')  # Onay bekleyen izinler
+    total_leave_requests = LeaveRequest.objects.all().count()  # Toplam izin talebi
+
+    return render(request, 'dashboard/admin_dashboard.html', {
+        'notifications': notifications,
+        'leave_requests': leave_requests,
+        'total_leave_requests': total_leave_requests,
+    })
+
 
 def admin(request):
     return render(request, 'dashboard/admin.html')
+
+from django.contrib import messages
+
 def manage_leaves(request):
-    leave_requests = LeaveRequest.objects.all().order_by('-start_date')  # Tüm talepleri al
+    print("manage_leaves fonksiyonu çağrıldı.")
+
+    leave_requests = LeaveRequest.objects.all().order_by('-start_date')  # Tüm izin taleplerini al
+    employee_profiles = EmployeeProfile.objects.all()  # Tüm çalışan profillerini al
 
     if request.method == 'POST':
         leave_id = request.POST.get('leave_id')
         action = request.POST.get('action')
         leave_request = LeaveRequest.objects.get(id=leave_id)
+
         if action == 'approve':
             leave_request.status = 'Approved'
+            print(f"Leave duration: {leave_duration}, Remaining leave days: {employee_profile.annual_leave_days}")
+
+            # İzin günlerinden düşme işlemi
+            try:
+                employee_profile = EmployeeProfile.objects.get(user=leave_request.employee)
+                leave_duration = (leave_request.end_date - leave_request.start_date).days + 1
+
+                # Negatif izin günlerini engelle
+                if employee_profile.annual_leave_days >= leave_duration:
+                    employee_profile.annual_leave_days -= leave_duration
+                    employee_profile.save()
+                    print(f"Leave duration: {leave_duration}, Remaining leave days: {employee_profile.annual_leave_days}")
+
+                    # Kullanıcıya başarı mesajı gönder
+                    messages.success(request, f"{leave_request.employee.username} için izin onaylandı. Kalan izin günleri: {employee_profile.annual_leave_days:.2f} gün.")
+                else:
+                    messages.error(request, "Yıllık izin yetersiz!")  # İzin yeterli değilse hata ver
+            except EmployeeProfile.DoesNotExist:
+                messages.error(request, "Employee profile bulunamadı!")  # Kullanıcı profili yoksa hata ver
+
         elif action == 'reject':
             leave_request.status = 'Rejected'
-        leave_request.save()
-        return redirect('manage_leaves')  # İşlem sonrası sayfayı yenile
+            messages.info(request, f"{leave_request.employee.username} için izin reddedildi.")
 
-    return render(request, 'dashboard/manage_leaves.html', {'leave_requests': leave_requests})
+        leave_request.save()
+        return redirect('manage_leaves')  # İşlem sonrası aynı sayfaya yönlendir
+
+    # Şablona izin taleplerini ve çalışan profillerini gönder
+    return render(request, 'dashboard/manage_leaves.html', {
+        'leave_requests': leave_requests,
+        'employee_profiles': employee_profiles
+    })
+
+
+def format_leave_days(leave_days):
+    """
+    Gün, saat ve dakika olarak yıllık izin günlerini formatlar.
+    Negatif değerleri sıfır olarak gösterir.
+    """
+    if leave_days < 0:
+        leave_days = 0  # Negatif değerleri sıfıra eşitle
+
+    total_minutes = leave_days * 8 * 60  # Gün -> Saat -> Dakika
+    days = total_minutes // (8 * 60)  # Gün sayısı
+    hours = (total_minutes % (8 * 60)) // 60  # Saat sayısı
+    minutes = total_minutes % 60  # Dakika sayısı
+    return f"{int(days)} days, {int(hours)} hours, {int(minutes)} minutes"
+

@@ -4,15 +4,21 @@
 
 {% block content %}
 <h2>Bildirimler</h2>
-{% for notification in notifications %}
-<li {% if notification.is_read %}style="opacity: 0.5;"{% endif %}>
-    <strong>{{ notification.title }}</strong>
-    <p>{{ notification.message }}</p>
-    <small>{{ notification.created_at }}</small>
-    {% if not notification.is_read %}
-    <a href="{% url 'mark_notification_as_read' notification.id %}">Okundu olarak işaretle</a>
-    {% endif %}
-</li>
-{% endfor %}
+<ul>
+    {% for notification in notifications %}
+    <li>
+        <strong>{{ notification.title }}</strong>
+        <p>{{ notification.message }}</p>
+        <small>{{ notification.created_at }}</small>
+        <a href="{% url 'mark_notification_as_read' notification.id %}">Okundu olarak işaretle</a>
+    </li>
+    {% empty %}
+    <li>Hiç okunmamış bildirim yok.</li>
+    {% endfor %}
+</ul>
+
+<h2>İzin Talepleri Yönetimi</h2>
+<!-- Manage Leaves Button -->
+<a href="{% url 'manage_leaves' %}" class="btn btn-primary">İzin Taleplerini Yönet</a>
 
 {% endblock %}
