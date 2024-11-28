@@ -10,16 +10,19 @@ class Attendance(models.Model):
     def __str__(self):
         return f"{self.employee.username} - {self.date}"
 
+
 class LeaveRequest(models.Model):
-    employee = models.ForeignKey(User, on_delete=models.CASCADE)
-    start_date = models.DateField()
-    end_date = models.DateField()
-    reason = models.TextField()
-    status = models.CharField(
-        max_length=20,
-        choices=[('Pending', 'Pending'), ('Approved', 'Approved'), ('Rejected', 'Rejected')],
-        default='Pending'
-    )
+    STATUS_CHOICES = [
+        ('Pending', 'Pending'),
+        ('Approved', 'Approved'),
+        ('Rejected', 'Rejected'),
+    ]
+
+    employee = models.ForeignKey(User, on_delete=models.CASCADE)  # Kullanıcı ile ilişkilendirme
+    start_date = models.DateField()  # İzin başlangıç tarihi
+    end_date = models.DateField()  # İzin bitiş tarihi
+    reason = models.TextField()  # İzin nedeni
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending')  # Talep durumu
 
     def __str__(self):
-        return f"{self.employee.username} - {self.start_date} to {self.end_date}"
+        return f"{self.employee.username} - {self.start_date} to {self.end_date} ({self.status})"

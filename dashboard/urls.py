@@ -8,4 +8,6 @@ urlpatterns = [
     path('admin/', views.admin, name='admin_page'),
     path('employee/check-in/', views.check_in, name='check_in'),  # Check In için URL
     path('employee/check-out/', views.check_out, name='check_out'),
+        path('manage-leaves/', views.manage_leaves, name='manage_leaves'),  # Admin için izin yönetimi
+
 ]

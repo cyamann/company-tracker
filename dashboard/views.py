@@ -1,7 +1,6 @@
 from django.http import HttpResponse
 
 from django.shortcuts import render, redirect
-from .forms import LeaveRequestForm
 from .models import Attendance
 from django.utils.timezone import now
 from datetime import date
@@ -10,7 +9,11 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth import authenticate, login as auth_login
 from django.shortcuts import render, redirect
 from django.http import HttpResponse
+from django.contrib.auth.decorators import user_passes_test
 
+from django.shortcuts import render, redirect
+from .forms import LeaveRequestForm
+from .models import LeaveRequest
 def login(request):
     if request.method == 'POST':
         # Formdan gelen verileri al
@@ -69,24 +72,35 @@ def employee(request):
 def index(request):
     return render(request, 'dashboard/index.html')
 
-from django.shortcuts import render
-from .models import Attendance
+
 
 def employee(request):
     if request.method == 'POST':
         form = LeaveRequestForm(request.POST)
         if form.is_valid():
             leave_request = form.save(commit=False)
-            leave_request.employee = request.user
+            leave_request.employee = request.user  # Giriş yapmış kullanıcıyı ata
             leave_request.save()
-            return redirect('employee_page')  # Employee sayfasına geri dön
+            return redirect('employee_page')  # İzin talebi sonrası sayfaya dön
     else:
         form = LeaveRequestForm()
-    
-    # Kullanıcının yoklama kayıtlarını al ve en son tarih sırasına göre sırala
-    attendance_records = Attendance.objects.filter(employee=request.user).order_by('-date')
-    return render(request, 'dashboard/employee.html', {'form': form, 'attendance_records': attendance_records})
 
-
+    leave_requests = LeaveRequest.objects.filter(employee=request.user).order_by('-start_date')  # Kullanıcıya ait talepler
+    return render(request, 'dashboard/employee.html', {'form': form, 'leave_requests': leave_requests})
 def admin(request):
     return render(request, 'dashboard/admin.html')
+def manage_leaves(request):
+    leave_requests = LeaveRequest.objects.all().order_by('-start_date')  # Tüm talepleri al
+
+    if request.method == 'POST':
+        leave_id = request.POST.get('leave_id')
+        action = request.POST.get('action')
+        leave_request = LeaveRequest.objects.get(id=leave_id)
+        if action == 'approve':
+            leave_request.status = 'Approved'
+        elif action == 'reject':
+            leave_request.status = 'Rejected'
+        leave_request.save()
+        return redirect('manage_leaves')  # İşlem sonrası sayfayı yenile
+
+    return render(request, 'dashboard/manage_leaves.html', {'leave_requests': leave_requests})

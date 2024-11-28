@@ -29,7 +29,16 @@
         </p>
 
     </section>
-
+    <section>
+        {% for leave in leave_requests %}
+        <tr>
+            <td>{{ leave.start_date }}</td>
+            <td>{{ leave.end_date }}</td>
+            <td>{{ leave.reason }}</td>
+            <td>{{ leave.status }}</td>
+        </tr>
+        {% endfor %}
+    </section>
     <!-- Yoklama Kayıtları -->
     <section class="mt-5">
         <h2>Attendance Records</h2>
