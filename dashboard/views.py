@@ -10,6 +10,7 @@ from django.contrib.auth import authenticate, login as auth_login
 from django.shortcuts import render, redirect
 from django.http import HttpResponse
 from django.contrib.auth.decorators import user_passes_test
+from .models import Attendance, AttendanceLog
 
 from django.shortcuts import render, redirect
 from .forms import LeaveRequestForm
@@ -41,52 +42,79 @@ def logout_view(request):
 def check_in(request):
     if request.user.is_authenticated:  # Kullanıcının giriş yapıp yapmadığını kontrol et
         today = date.today()
+        # Kullanıcı ve bugünkü tarih için yoklama kaydını al veya oluştur
         attendance, created = Attendance.objects.get_or_create(employee=request.user, date=today)
-        if not attendance.check_in_time:  # Eğer daha önce check-in yapılmadıysa
-            attendance.check_in_time = now().time()
-            attendance.save()
-            print("Check-in başarıyla kaydedildi.")  # Hata ayıklama için log
-        else:
-            print("Zaten check-in yapılmış.")
-        return redirect('employee_page')  # İşlem sonrası employee sayfasına yönlendir
+        # Yeni bir check-in log kaydı oluştur
+        AttendanceLog.objects.create(attendance=attendance, action='Check-In')
+        print("Check-in başarıyla kaydedildi.")  # Log
+        return redirect('employee_page')  # Employee sayfasına yönlendir
     else:
         return redirect('login')  # Kullanıcı giriş yapmadıysa login sayfasına yönlendir
+
 def check_out(request):
     if request.user.is_authenticated:  # Kullanıcının giriş yaptığını kontrol et
         today = date.today()
         try:
+            # Kullanıcı ve bugünkü tarih için yoklama kaydını getir
             attendance = Attendance.objects.get(employee=request.user, date=today)
-            if not attendance.check_out_time:
-                attendance.check_out_time = now().time()
-                attendance.save()
+            # Yeni bir check-out log kaydı oluştur
+            AttendanceLog.objects.create(attendance=attendance, action='Check-Out')
+            print("Check-out başarıyla kaydedildi.")  # Log
         except Attendance.DoesNotExist:
-            pass
-        return redirect('employee_page')  # Employee sayfasına yönlendirme
-    return redirect('login')  # Giriş yapılmadıysa login sayfasına yönlendir
+            print("Bugün için check-in yapılmamış.")  # Log
+        return redirect('employee_page')  # Employee sayfasına yönlendir
+    return redirect('login')  #
 
 
-def employee(request):
-
-    return render(request, 'dashboard/employee.html') 
 
 def index(request):
     return render(request, 'dashboard/index.html')
 
 
 
+from django.shortcuts import render, redirect
+from .forms import LeaveRequestForm
+from .models import LeaveRequest, Attendance
+from django.contrib.auth.decorators import login_required
+from datetime import date
+
+from django.shortcuts import render, redirect
+from .forms import LeaveRequestForm
+from .models import LeaveRequest, Attendance, AttendanceLog
+from django.contrib.auth.decorators import login_required
+
+@login_required
 def employee(request):
+    """
+    Çalışanın izin taleplerini ve yoklama kayıtlarını yönetir.
+    """
+    # Kullanıcı izin talebi gönderdiğinde
     if request.method == 'POST':
         form = LeaveRequestForm(request.POST)
         if form.is_valid():
             leave_request = form.save(commit=False)
-            leave_request.employee = request.user  # Giriş yapmış kullanıcıyı ata
+            leave_request.employee = request.user  # Kullanıcıyı ilişkilendir
             leave_request.save()
-            return redirect('employee_page')  # İzin talebi sonrası sayfaya dön
+            return redirect('employee_page')  # Başarıyla kaydedildikten sonra sayfayı yenile
     else:
         form = LeaveRequestForm()
 
-    leave_requests = LeaveRequest.objects.filter(employee=request.user).order_by('-start_date')  # Kullanıcıya ait talepler
-    return render(request, 'dashboard/employee.html', {'form': form, 'leave_requests': leave_requests})
+    # Kullanıcıya ait izin taleplerini ve yoklama kayıtlarını getir
+    leave_requests = LeaveRequest.objects.filter(employee=request.user).order_by('-start_date')
+    attendance_logs = AttendanceLog.objects.filter(attendance__employee=request.user).order_by('-timestamp')
+
+    # Template'e gönderilecek veri
+    context = {
+        'form': form,  # İzin talep formu
+        'leave_requests': leave_requests,  # İzin talepleri
+        'attendance_logs': attendance_logs,  # Yoklama logları
+    }
+    return render(request, 'dashboard/employee.html', context)
+
+
+
+
+
 def admin(request):
     return render(request, 'dashboard/admin.html')
 def manage_leaves(request):

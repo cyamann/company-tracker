@@ -1,65 +1,80 @@
 {% extends 'partials/base.html' %}
+
 {% block title %}Employee Dashboard{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
-    <!-- Başlık -->
-    <h1 class="text-center">Welcome, {{ user.username }}</h1>
+    <h1>Welcome, {{ user.username }}</h1>
 
     <!-- İzin Talebi -->
     <section class="mt-5">
         <h2>Request Leave</h2>
-        <form method="post" class="form">
+        <form method="post">
             {% csrf_token %}
-            <div class="form-group">
-                {{ form.as_p }}
-            </div>
+            {{ form.as_p }}
             <button type="submit" class="btn btn-success">Submit Leave Request</button>
         </form>
     </section>
 
-    <!-- Giriş/Çıkış İşlemleri -->
+    <!-- Yoklama İşlemleri -->
     <section class="mt-5">
         <h2>Attendance Actions</h2>
-        <p>
-    <!-- "Check In" Button -->
-        <a href="{% url 'check_in' %}" class="btn btn-primary">Check In</a>
-    <!-- "Check Out" Button -->
-        <a href="{% url 'check_out' %}" class="btn btn-secondary">Check Out</a>
-        </p>
+        <div class="d-flex gap-3">
+            <a href="{% url 'check_in' %}" class="btn btn-primary">Check In</a>
+            <a href="{% url 'check_out' %}" class="btn btn-secondary">Check Out</a>
+        </div>
+    </section>
 
-    </section>
-    <section>
-        {% for leave in leave_requests %}
-        <tr>
-            <td>{{ leave.start_date }}</td>
-            <td>{{ leave.end_date }}</td>
-            <td>{{ leave.reason }}</td>
-            <td>{{ leave.status }}</td>
-        </tr>
-        {% endfor %}
-    </section>
     <!-- Yoklama Kayıtları -->
     <section class="mt-5">
-        <h2>Attendance Records</h2>
+        <h2>Attendance Logs</h2>
         <table class="table table-striped">
             <thead>
                 <tr>
                     <th>Date</th>
-                    <th>Check-in Time</th>
-                    <th>Check-out Time</th>
+                    <th>Action</th>
+                    <th>Timestamp</th>
                 </tr>
             </thead>
             <tbody>
-                {% for record in attendance_records %}
+                {% for log in attendance_logs %}
                 <tr>
-                    <td>{{ record.date }}</td>
-                    <td>{{ record.check_in_time|default:"-" }}</td>
-                    <td>{{ record.check_out_time|default:"-" }}</td>
+                    <td>{{ log.attendance.date }}</td>
+                    <td>{{ log.action }}</td>
+                    <td>{{ log.timestamp }}</td>
                 </tr>
                 {% empty %}
                 <tr>
                     <td colspan="3" class="text-center">No attendance records found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+
+    <!-- İzin Talepleri -->
+    <section class="mt-5">
+        <h2>Leave Requests</h2>
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Start Date</th>
+                    <th>End Date</th>
+                    <th>Reason</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for leave in leave_requests %}
+                <tr>
+                    <td>{{ leave.start_date }}</td>
+                    <td>{{ leave.end_date }}</td>
+                    <td>{{ leave.reason }}</td>
+                    <td>{{ leave.status }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" class="text-center">No leave requests found.</td>
                 </tr>
                 {% endfor %}
             </tbody>
