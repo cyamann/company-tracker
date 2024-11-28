@@ -16,7 +16,9 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
-
+CELERY_BROKER_URL = 'redis://localhost:6380/0'  # Redis broker adresi
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
 # Application definition
 
 INSTALLED_APPS = [

@@ -1,12 +1,24 @@
 {% extends 'partials/base.html' %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin</title>
-</head>
-<body>
-    <h3>Admin page</h3>
-</body>
-</html>
+<h2>Late Attendance Records</h2>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Employee</th>
+            <th>Date</th>
+            <th>Check-In Time</th>
+            <th>Late Minutes</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for log in late_logs %}
+        <tr>
+            <td>{{ log.attendance.employee.username }}</td>
+            <td>{{ log.attendance.date }}</td>
+            <td>{{ log.timestamp.time }}</td>
+            <td>
+                {{ log.timestamp.time|timesince:"08:00:00" }}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>

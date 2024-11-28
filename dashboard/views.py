@@ -1,4 +1,7 @@
 from django.http import HttpResponse
+from .tasks import notify_admin_for_late_employee
+from django.db.models import F
+from .models import Notification
 
 from django.shortcuts import render, redirect
 from .models import Attendance
@@ -19,12 +22,21 @@ from datetime import date, datetime, time, timedelta
 from .models import Attendance, AttendanceLog, EmployeeProfile
 from django.contrib.auth.decorators import login_required
 from django.utils.timezone import now
+from django.shortcuts import get_object_or_404
+from django.contrib.auth.models import User
 
 # Sabitler
 START_TIME = time(8, 0)  # İş başlangıç saati: 08:00
 END_TIME = time(18, 0)  # İş bitiş saati: 18:00
 WEEKEND_DAYS = [5, 6]  # Cumartesi ve Pazar (5 = Cumartesi, 6 = Pazar)
 
+
+@login_required
+def mark_notification_as_read(request, notification_id):
+    notification = get_object_or_404(Notification, id=notification_id, user=request.user)
+    notification.is_read = True
+    notification.save()
+    return redirect('admin_dashboard')
 
 def login(request):
     if request.method == 'POST':
@@ -49,41 +61,46 @@ def logout_view(request):
     logout(request)
     return redirect('login')  # Çıkış yaptıktan sonra login sayfasına yönlendir
 
+START_TIME = time(8, 0)  
 
 @login_required
 def check_in(request):
-    if request.user.is_authenticated:
-        today = date.today()
+    today = date.today()
 
-        # Tatil günlerini kontrol et
-        if today.weekday() in WEEKEND_DAYS:
-            print("Bugün iş günü değil.")
-            return redirect('employee_page')
-
-        # Kullanıcıya ait Attendance kaydı al veya oluştur
-        attendance, created = Attendance.objects.get_or_create(employee=request.user, date=today)
-
-        # Check-in log kaydı oluştur
-        check_in_time = now().time()
-        AttendanceLog.objects.create(attendance=attendance, action='Check-In', timestamp=now())
-
-        # Geç kalma kontrolü
-        if check_in_time > START_TIME:
-            late_minutes = (datetime.combine(today, check_in_time) - datetime.combine(today, START_TIME)).seconds / 60
-            late_hours = late_minutes / 60
-            print(f"Geç kalma: {late_minutes} dakika")
-
-            # Saat bazında izin kesintisi
-            profile = EmployeeProfile.objects.get(user=request.user)
-            hours_to_deduct = late_minutes / 60  # Saat olarak kesilecek izin
-            profile.annual_leave_days -= hours_to_deduct / 8  # Günlük izin saat üzerinden gün hesaplanır
-            profile.save()
-
-            # Yetkiliye bildirim gönder
-            print(f"{request.user.username} geç kaldı. {late_minutes} dakika.")
+    # Tatil günlerini kontrol et
+    if today.weekday() >= 5:  # Cumartesi veya Pazar
         return redirect('employee_page')
-    return redirect('login')
 
+    # Attendance kaydı al veya oluştur
+    attendance, created = Attendance.objects.get_or_create(employee=request.user, date=today)
+
+    # Check-in zamanını al
+    check_in_time = now().time()
+    AttendanceLog.objects.create(attendance=attendance, action='Check-In', timestamp=now())
+
+    # Geç kalma kontrolü
+    if check_in_time > START_TIME:
+        late_minutes = (datetime.combine(today, check_in_time) - datetime.combine(today, START_TIME)).seconds // 60
+        admins = User.objects.filter(is_superuser=True)
+        for admin in admins:
+            Notification.objects.create(
+                user=admin,
+                title="Geç Kalma Bildirimi",
+                message=f"{request.user.username} adlı personel {late_minutes} dakika geç kalmıştır.",
+            )
+    return redirect('employee_page')
+
+
+@login_required
+def notification_list(request):
+    """
+    Admin kullanıcılar için tüm bildirimleri döner.
+    """
+    if not request.user.is_superuser:
+        return redirect('login')  # Sadece admin kullanıcılar erişebilir
+
+    notifications = Notification.objects.filter(user=request.user).order_by('-created_at')
+    return render(request, 'dashboard/notification_list.html', {'notifications': notifications})
 
 @login_required
 def check_out(request):
@@ -168,8 +185,10 @@ def employee(request):
 
 
 
-
-
+@user_passes_test(lambda u: u.is_superuser)  # Sadece admin erişebilir
+def admin_dashboard(request):
+    notifications = Notification.objects.filter(user=request.user, is_read=False).order_by('-created_at')
+    return render(request, 'dashboard/admin_dashboard.html', {'notifications': notifications})
 
 def admin(request):
     return render(request, 'dashboard/admin.html')

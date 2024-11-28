@@ -9,5 +9,7 @@ urlpatterns = [
     path('employee/check-in/', views.check_in, name='check_in'),  # Check-in URL'si
     path('employee/check-out/', views.check_out, name='check_out'),  # Check-out URL'si
     path('manage-leaves/', views.manage_leaves, name='manage_leaves'),  # Admin için izin yönetimi
+    path('admin/dashboard/', views.admin_dashboard, name='admin_dashboard'),
+    path('notifications/read/<int:notification_id>/', views.mark_notification_as_read, name='mark_notification_as_read'),
 
 ]

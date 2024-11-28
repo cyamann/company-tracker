@@ -1,0 +1,18 @@
+{% extends 'partials/base.html' %}
+
+{% block title %}Admin Dashboard{% endblock %}
+
+{% block content %}
+<h2>Bildirimler</h2>
+{% for notification in notifications %}
+<li {% if notification.is_read %}style="opacity: 0.5;"{% endif %}>
+    <strong>{{ notification.title }}</strong>
+    <p>{{ notification.message }}</p>
+    <small>{{ notification.created_at }}</small>
+    {% if not notification.is_read %}
+    <a href="{% url 'mark_notification_as_read' notification.id %}">Okundu olarak işaretle</a>
+    {% endif %}
+</li>
+{% endfor %}
+
+{% endblock %}

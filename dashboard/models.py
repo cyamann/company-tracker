@@ -1,8 +1,23 @@
 from django.db import models
 from django.contrib.auth.models import User  # Yerleşik User modeli
+from datetime import datetime
+
 class EmployeeProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)  # User ile birebir ilişki
     annual_leave_days = models.FloatField(default=15)  # Yıllık izin günleri
+
+class Notification(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)  # Bildirim sahibi (Admin)
+    title = models.CharField(max_length=255)  # Bildirim başlığı
+    message = models.TextField()  # Bildirim mesajı
+    is_read = models.BooleanField(default=False)  # Okundu bilgisi
+    created_at = models.DateTimeField(auto_now_add=True)  # Bildirimin oluşturulma zamanı
+
+    def __str__(self):
+        return self.title
+
+
+
 
 class Attendance(models.Model):
     employee = models.ForeignKey(User, on_delete=models.CASCADE)  # Kullanıcı modeli ile ilişki
