@@ -13,7 +13,6 @@ def check_annual_leave(sender, instance, **kwargs):
     """
     Personelin yıllık izni 3 günden az kaldığında adminlere bildirim gönderir.
     """
-    # Kalan yıllık izin gününü kontrol et
     if instance.annual_leave_days < 3:
         admins = User.objects.filter(is_superuser=True)
         for admin in admins:
